@@ -455,6 +455,117 @@ You can also control lazy-initialization at the container level
     </beans>
 
 ### 1.4.5. Autowiring Collaborators
+You can let Spring resolve collaborators (other beans) automatically for your bean by inspecting the contents of the ApplicationContext.
+* Autowiring can significantly reduce the need to specify properties or constructor arguments
+* Autowiring can update a configuration as your objects evolve 
+  
+You can specify the autowire mode for a bean definition with the autowire attribute of the <bean/> element.
+
+Autowiring modes:
+* no - (Default) No autowiring.
+* byName - Spring looks for a bean with the same name as the property that needs to be autowired. Bean definition is set to autowire by name and it contains a master property (that is, it has a setMaster(..) method), Spring looks for a bean definition named master and uses it to set the property.
+* byType - Lets a property be autowired if exactly one bean of the property type exists in the container. If more than one exists, a fatal exception is thrown, which indicates that you may not use byType autowiring for that bean. If there are no matching beans, nothing happens (the property is not set).
+* constructor - Analogous to byType but applies to constructor arguments. If there is not exactly one bean of the constructor argument type in the container, a fatal error is raised.
+
+Limitations and Disadvantages of Autowiring:
+* Explicit dependencies in property and constructor-arg settings always override autowiring. You cannot autowire simple properties such as primitives, Strings, and Classes (and arrays of such simple properties).
+* Autowiring is less exact than explicit wiring.
+* Wiring information may not be available to tools that may generate documentation from a Spring container.
+* Multiple bean definitions within the container may match the type specified by the setter method or constructor argument to be autowired
+
+Excluding a Bean from Autowiring
+n Spring’s XML format, set the `autowire-candidate` attribute of the `<bean/>` element to `false`. 
+
+### 1.4.6. Method Injection
+When a singleton bean needs to collaborate with another bean, problem arises when the bean lifecycles are different.
+A solution is to forego some inversion of control. You can make bean A aware of the container by implementing the ApplicationContextAware interface, and by making a getBean("B") call to the container ask for (a typically new) bean B instance every time bean A needs it.
+
+    public class CommandManager implements ApplicationContextAware {
+    
+        private ApplicationContext applicationContext;
+    
+        public Object process(Map commandState) {
+            // grab a new instance of the appropriate Command
+            Command command = createCommand();
+            // set the state on the (hopefully brand new) Command instance
+            command.setState(commandState);
+            return command.execute();
+        }
+    
+        protected Command createCommand() {
+            // notice the Spring API dependency!
+            return this.applicationContext.getBean("command", Command.class);
+        }
+    
+        public void setApplicationContext(
+                ApplicationContext applicationContext) throws BeansException {
+            this.applicationContext = applicationContext;
+        }
+    }
+
+Lookup Method Injection
+
+Lookup method injection is the ability of the container to override methods on container-managed beans and return the lookup result for another named bean in the container.
+
+    public abstract class CommandManager {
+    
+        public Object process(Object commandState) {
+            // grab a new instance of the appropriate Command interface
+            Command command = createCommand();
+            // set the state on the (hopefully brand new) Command instance
+            command.setState(commandState);
+            return command.execute();
+        }
+    
+        // okay... but where is the implementation of this method?
+        protected abstract Command createCommand();
+    }
+.
+
+    <!-- a stateful bean deployed as a prototype (non-singleton) -->
+    <bean id="myCommand" class="fiona.apple.AsyncCommand" scope="prototype">
+        <!-- inject dependencies here as required -->
+    </bean>
+    
+    <!-- commandProcessor uses statefulCommandHelper -->
+    <bean id="commandManager" class="fiona.apple.CommandManager">
+        <lookup-method name="createCommand" bean="myCommand"/>
+    </bean>
+
+Alternatively, within the annotation-based component model, you can declare a lookup method through the @Lookup annotation.
+
+    public abstract class CommandManager {
+    
+        public Object process(Object commandState) {
+            Command command = createCommand();
+            command.setState(commandState);
+            return command.execute();
+        }
+    
+        @Lookup("myCommand")
+        protected abstract Command createCommand();
+    }
+
+Arbitrary Method Replacement
+
+With XML-based configuration metadata, you can use the replaced-method element to replace an existing method implementation with another, for a deployed bean. 
+
+    <bean id="myValueCalculator" class="x.y.z.MyValueCalculator">
+        <!-- arbitrary method replacement -->
+        <replaced-method name="computeValue" replacer="replacementComputeValue">
+            <arg-type>String</arg-type>
+        </replaced-method>
+    </bean>
+    
+    <bean id="replacementComputeValue" class="a.b.c.ReplacementComputeValue"/>
+
+
+
+
+
+
+
+
 
 
 
