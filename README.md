@@ -651,6 +651,109 @@ This method is declared on the ConfigurableBeanFactory interface, which is avail
     
     </beans>
 
+## 1.6. Customizing the Nature of a Bean
+### 1.6.1. Lifecycle Callbacks
+To interact with the container’s management of the bean lifecycle, you can implement the Spring InitializingBean and DisposableBean interfaces.
+
+##### Initialization Callbacks
+The org.springframework.beans.factory.InitializingBean interface lets a bean perform initialization work after the container has set all necessary properties on the bean
+
+    <bean id="exampleInitBean" class="examples.ExampleBean" init-method="init"/>
+.
+
+    public class ExampleBean {
+    
+        public void init() {
+            // do some initialization work
+        }
+    }
+
+or
+
+    <bean id="exampleInitBean" class="examples.AnotherExampleBean"/>
+.
+
+    public class AnotherExampleBean implements InitializingBean {
+    
+        @Override
+        public void afterPropertiesSet() {
+            // do some initialization work
+        }
+    }
+
+
+##### Destruction Callbacks
+
+    void destroy() throws Exception;    
+.
+
+    <bean id="exampleInitBean" class="examples.ExampleBean" destroy-method="cleanup"/>
+
+or
+
+    <bean id="exampleInitBean" class="examples.AnotherExampleBean"/>
+.
+
+    public class AnotherExampleBean implements DisposableBean {
+    
+        @Override
+        public void destroy() {
+            // do some destruction work (like releasing pooled connections)
+        }
+    }
+
+##### Default Initialization and Destroy Methods
+    <beans default-init-method="init">
+    
+        <bean id="blogService" class="com.something.DefaultBlogService">
+            <property name="blogDao" ref="blogDao" />
+        </bean>
+    
+    </beans>
+
+##### Combining Lifecycle Mechanisms
+You have three options for controlling bean lifecycle behavior:
+* The InitializingBean and DisposableBean callback interfaces
+* Custom init() and destroy() methods
+* The @PostConstruct and @PreDestroy annotations. You can combine these mechanisms to control a given bean.
+
+Multiple lifecycle mechanisms configured for the same bean, with different initialization methods, are called as follows:
+* Methods annotated with @PostConstruct
+* afterPropertiesSet() as defined by the InitializingBean callback interface
+* A custom configured init() method
+
+Destroy methods are called in the same order:
+* Methods annotated with @PreDestroy
+* destroy() as defined by the DisposableBean callback interface
+* A custom configured destroy() method
+
+##### Startup and Shutdown Callbacks
+Any Spring-managed object may implement the Lifecycle interface. Then, when the ApplicationContext itself receives start and stop signals (for example, for a stop/restart scenario at runtime), it cascades those calls to all Lifecycle implementations defined within that context. 
+
+You may only know that objects of a certain type should start prior to objects of another type. In those cases, the SmartLifecycle interface defines another option, namely the getPhase() method as defined on its super-interface, Phased.
+SmartLifecycle and whose getPhase() method returns Integer.MIN_VALUE would be among the first to start and the last to stop.
+
+##### Shutting Down the Spring IoC Container Gracefully in Non-Web Applications
+To register a shutdown hook, call the registerShutdownHook() method that is declared on the ConfigurableApplicationContext interface.
+
+### 1.6.2. ApplicationContextAware and BeanNameAware
+Object instance that implements the org.springframework.context.ApplicationContextAware interface, the instance is provided with a reference to that ApplicationContext can programmatically manipulate the ApplicationContext.
+
+### 1.6.3. Other Aware Interfaces
+Spring offers a wide range of Aware callback interfaces that let beans indicate to the container that they require a certain infrastructure dependency
+* ApplicationContextAware
+* ApplicationEventPublisherAware
+* BeanClassLoaderAware
+* BeanFactoryAware
+* BeanNameAware
+* LoadTimeWeaverAware
+* MessageSourceAware
+* NotificationPublisherAware
+* ResourceLoaderAware
+* ServletConfigAware
+* ServletContextAware
+
+
 
 
 
