@@ -559,18 +559,97 @@ With XML-based configuration metadata, you can use the replaced-method element t
     
     <bean id="replacementComputeValue" class="a.b.c.ReplacementComputeValue"/>
 
+## 1.5 Bean scopes
 
+* singleton
+* prototype - Scopes a single bean definition to any number of object instances.
+* request - Scopes a single bean definition to the lifecycle of a single HTTP request.
+* session - Scopes a single bean definition to the lifecycle of an HTTP Session.
+* application - Scopes a single bean definition to the lifecycle of a ServletContext.
+* websocket - Scopes a single bean definition to the lifecycle of a WebSocket.
 
+### 1.5.4. Request, Session, Application, and WebSocket Scopes
+The request, session, application, and websocket scopes are available only if you use a web-aware Spring ApplicationContext implementation (such as XmlWebApplicationContext). If you use these scopes with regular Spring IoC containers, such as the ClassPathXmlApplicationContext, an IllegalStateException that complains about an unknown bean scope is thrown.
 
+##### Initial Web Configuration
 
+To support the scoping of beans at the request, session, application, and websocket levels (web-scoped beans), some minor initial configuration is required before you define your beans.
 
+If you access scoped beans within Spring Web MVC, in effect, within a request that is processed by the Spring DispatcherServlet, no special setup is necessary.
 
+For Servlet 3.0+, this can be done programmatically by using the WebApplicationInitializer interface.
 
+DispatcherServlet, RequestContextListener, and RequestContextFilter all do exactly the same thing, namely bind the HTTP request object to the Thread that is servicing that request. 
 
+##### Application Scope
+This is somewhat similar to a Spring singleton bean but differs in two important ways: It is a singleton per ServletContext, not per Spring 'ApplicationContext' (for which there may be several in any given web application), and it is actually exposed and therefore visible as a ServletContext attribute.
 
+##### Scoped Beans as Dependencies
+If you want to inject (for example) an HTTP request-scoped bean into another bean of a longer-lived scope, you may choose to inject an AOP proxy in place of the scoped bean.
 
+    <?xml version="1.0" encoding="UTF-8"?>
+    <beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:aop="http://www.springframework.org/schema/aop"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+    https://www.springframework.org/schema/beans/spring-beans.xsd
+    http://www.springframework.org/schema/aop
+    https://www.springframework.org/schema/aop/spring-aop.xsd">
+    
+        <!-- an HTTP Session-scoped bean exposed as a proxy -->
+        <bean id="userPreferences" class="com.something.UserPreferences" scope="session">
+            <!-- instructs the container to proxy the surrounding bean -->
+            <aop:scoped-proxy/> 
+        </bean>
+    
+        <!-- a singleton-scoped bean injected with a proxy to the above bean -->
+        <bean id="userService" class="com.something.SimpleUserService">
+            <!-- a reference to the proxied userPreferences bean -->
+            <property name="userPreferences" ref="userPreferences"/>
+        </bean>
+    </beans>
 
+### 1.5.5. Custom Scopes
+The bean scoping mechanism is extensible. You can define your own scopes or even redefine existing scopes, although the latter is considered bad practice and you cannot override the built-in singleton and prototype scopes.
 
+The Scope interface has four methods to get objects from the scope, remove them from the scope, and let them be destroyed.
+
+After you write and test one or more custom Scope implementations, you need to make the Spring container aware of your new scopes.
+This method is declared on the ConfigurableBeanFactory interface, which is available through the BeanFactory property on most of the concrete ApplicationContext implementations that ship with Spring.
+
+    Scope threadScope = new SimpleThreadScope();
+    beanFactory.registerScope("thread", threadScope);
+.
+
+    <?xml version="1.0" encoding="UTF-8"?>
+    <beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:aop="http://www.springframework.org/schema/aop"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+    https://www.springframework.org/schema/beans/spring-beans.xsd
+    http://www.springframework.org/schema/aop
+    https://www.springframework.org/schema/aop/spring-aop.xsd">
+    
+        <bean class="org.springframework.beans.factory.config.CustomScopeConfigurer">
+            <property name="scopes">
+                <map>
+                    <entry key="thread">
+                        <bean class="org.springframework.context.support.SimpleThreadScope"/>
+                    </entry>
+                </map>
+            </property>
+        </bean>
+    
+        <bean id="thing2" class="x.y.Thing2" scope="thread">
+            <property name="name" value="Rick"/>
+            <aop:scoped-proxy/>
+        </bean>
+    
+        <bean id="thing1" class="x.y.Thing1">
+            <property name="thing2" ref="thing2"/>
+        </bean>
+    
+    </beans>
 
 
 
