@@ -149,8 +149,8 @@ To use this mechanism, leave the class attribute empty and, in the factory-bean 
 #### Determining a Bean’s Runtime Type
 The recommended way to find out about the actual runtime type of a particular bean is a BeanFactory.getType call for the specified bean name. This takes all of the above cases into account and returns the type of object that a BeanFactory.getBean call is going to return for the same bean name.
 
-## 1.4 Dependencies
-### 1.4.1. Dependency Injection
+### 1.4 Dependencies
+#### 1.4.1. Dependency Injection
 Dependency injection (DI) is a process whereby objects define their dependencies only through constructor arguments, arguments to a factory method, or properties that are set on the object instance after it is constructed or returned from a factory method.
 The container then injects those dependencies when it creates the bean. 
 
@@ -217,7 +217,7 @@ Dependency Resolution Process
 If you configure beans for classes A and B to be injected into each other, the Spring IoC container detects this circular reference at runtime, and throws a BeanCurrentlyInCreationException.
 
 
-### 1.4.2. Dependencies and Configuration in Detail
+#### 1.4.2. Dependencies and Configuration in Detail
 Straight Values (Primitives, Strings, and so on)
 
     <bean id="myDataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
@@ -429,7 +429,7 @@ The something bean has a fred property, which has a bob property, which has a sa
         <property name="fred.bob.sammy" value="123" />
     </bean>
 
-### 1.4.3. Using depends-on
+#### 1.4.3. Using depends-on
 The depends-on attribute can explicitly force one or more beans to be initialized before the bean using this element is initialized.
 
     <bean id="beanOne" class="ExampleBean" depends-on="manager,accountDao">
@@ -439,7 +439,7 @@ The depends-on attribute can explicitly force one or more beans to be initialize
     <bean id="manager" class="ManagerBean" />
     <bean id="accountDao" class="x.y.jdbc.JdbcAccountDao" />
 
-### 1.4.4. Lazy-initialized Beans
+#### 1.4.4. Lazy-initialized Beans
 All singleton beans as part of the initialization process. Generally, this pre-instantiation is desirable, because errors in the configuration or surrounding environment are discovered immediately.
 A lazy-initialized bean tells the IoC container to create a bean instance when it is first requested.
 
@@ -454,7 +454,7 @@ You can also control lazy-initialization at the container level
         <!-- no beans will be pre-instantiated... -->
     </beans>
 
-### 1.4.5. Autowiring Collaborators
+#### 1.4.5. Autowiring Collaborators
 You can let Spring resolve collaborators (other beans) automatically for your bean by inspecting the contents of the ApplicationContext.
 * Autowiring can significantly reduce the need to specify properties or constructor arguments
 * Autowiring can update a configuration as your objects evolve 
@@ -476,7 +476,7 @@ Limitations and Disadvantages of Autowiring:
 Excluding a Bean from Autowiring
 n Spring’s XML format, set the `autowire-candidate` attribute of the `<bean/>` element to `false`. 
 
-### 1.4.6. Method Injection
+#### 1.4.6. Method Injection
 When a singleton bean needs to collaborate with another bean, problem arises when the bean lifecycles are different.
 A solution is to forego some inversion of control. You can make bean A aware of the container by implementing the ApplicationContextAware interface, and by making a getBean("B") call to the container ask for (a typically new) bean B instance every time bean A needs it.
 
@@ -559,7 +559,7 @@ With XML-based configuration metadata, you can use the replaced-method element t
     
     <bean id="replacementComputeValue" class="a.b.c.ReplacementComputeValue"/>
 
-## 1.5 Bean scopes
+### 1.5 Bean scopes
 
 * singleton
 * prototype - Scopes a single bean definition to any number of object instances.
@@ -568,7 +568,7 @@ With XML-based configuration metadata, you can use the replaced-method element t
 * application - Scopes a single bean definition to the lifecycle of a ServletContext.
 * websocket - Scopes a single bean definition to the lifecycle of a WebSocket.
 
-### 1.5.4. Request, Session, Application, and WebSocket Scopes
+#### 1.5.4. Request, Session, Application, and WebSocket Scopes
 The request, session, application, and websocket scopes are available only if you use a web-aware Spring ApplicationContext implementation (such as XmlWebApplicationContext). If you use these scopes with regular Spring IoC containers, such as the ClassPathXmlApplicationContext, an IllegalStateException that complains about an unknown bean scope is thrown.
 
 ##### Initial Web Configuration
@@ -609,7 +609,7 @@ If you want to inject (for example) an HTTP request-scoped bean into another bea
         </bean>
     </beans>
 
-### 1.5.5. Custom Scopes
+#### 1.5.5. Custom Scopes
 The bean scoping mechanism is extensible. You can define your own scopes or even redefine existing scopes, although the latter is considered bad practice and you cannot override the built-in singleton and prototype scopes.
 
 The Scope interface has four methods to get objects from the scope, remove them from the scope, and let them be destroyed.
@@ -651,8 +651,8 @@ This method is declared on the ConfigurableBeanFactory interface, which is avail
     
     </beans>
 
-## 1.6. Customizing the Nature of a Bean
-### 1.6.1. Lifecycle Callbacks
+### 1.6. Customizing the Nature of a Bean
+#### 1.6.1. Lifecycle Callbacks
 To interact with the container’s management of the bean lifecycle, you can implement the Spring InitializingBean and DisposableBean interfaces.
 
 ##### Initialization Callbacks
@@ -736,10 +736,10 @@ SmartLifecycle and whose getPhase() method returns Integer.MIN_VALUE would be am
 ##### Shutting Down the Spring IoC Container Gracefully in Non-Web Applications
 To register a shutdown hook, call the registerShutdownHook() method that is declared on the ConfigurableApplicationContext interface.
 
-### 1.6.2. ApplicationContextAware and BeanNameAware
+#### 1.6.2. ApplicationContextAware and BeanNameAware
 Object instance that implements the org.springframework.context.ApplicationContextAware interface, the instance is provided with a reference to that ApplicationContext can programmatically manipulate the ApplicationContext.
 
-### 1.6.3. Other Aware Interfaces
+#### 1.6.3. Other Aware Interfaces
 Spring offers a wide range of Aware callback interfaces that let beans indicate to the container that they require a certain infrastructure dependency
 * ApplicationContextAware
 * ApplicationEventPublisherAware
@@ -753,7 +753,7 @@ Spring offers a wide range of Aware callback interfaces that let beans indicate 
 * ServletConfigAware
 * ServletContextAware
 
-## 1.7. Bean Definition Inheritance
+### 1.7. Bean Definition Inheritance
 A child bean definition inherits configuration data from a parent definition
 
     <bean id="inheritedTestBean" abstract="true"
@@ -769,10 +769,10 @@ A child bean definition inherits configuration data from a parent definition
         <!-- the age property value of 1 will be inherited from parent -->
     </bean>
 
-## 1.8. Container Extension Points
+### 1.8. Container Extension Points
 The Spring IoC container can be extended by plugging in implementations of special integration interfaces.
 
-### 1.8.1. Customizing Beans by Using a BeanPostProcessor
+#### 1.8.1. Customizing Beans by Using a BeanPostProcessor
 The BeanPostProcessor interface defines callback methods that you can implement to provide your own (or override the container’s default) instantiation logic, dependency resolution logic, and so forth.
 You can configure multiple BeanPostProcessor instances, and you can control the order in which these BeanPostProcessor instances run by setting the order property.
 
@@ -789,7 +789,7 @@ You can configure multiple BeanPostProcessor instances, and you can control the 
         }
     }
 
-### 1.8.2. Customizing Configuration Metadata with a BeanFactoryPostProcessor
+#### 1.8.2. Customizing Configuration Metadata with a BeanFactoryPostProcessor
 BeanFactoryPostProcessor read the configuration metadata and potentially change it before the container instantiates any beans other than BeanFactoryPostProcessor instances.
 
     <bean class="org.springframework.context.support.PropertySourcesPlaceholderConfigurer">
@@ -804,14 +804,121 @@ BeanFactoryPostProcessor read the configuration metadata and potentially change 
         <property name="password" value="${jdbc.password}"/>
     </bean>
 
-### 1.8.3. Customizing Instantiation Logic with a FactoryBean
+#### 1.8.3. Customizing Instantiation Logic with a FactoryBean
 The FactoryBean<T> interface provides three methods:
 * T getObject(): Returns an instance of the object this factory creates. The instance can possibly be shared, depending on whether this factory returns singletons or prototypes.
 * boolean isSingleton(): Returns true if this FactoryBean returns singletons or false otherwise. The default implementation of this method returns true.
 * Class<?> getObjectType(): Returns the object type returned by the getObject() method or null if the type is not known in advance.
 
+### 1.9. Annotation-based Container Configuration
+* @Required
+* @Autowired
+* @Primary
+* @Qualifiers
+* @Resource
+* @Value
+* @PostConstruct
+* @PreDestroy
+
+### 1.10. Classpath Scanning and Managed Components
+#### 1.10.1. @Component and Further Stereotype Annotations
+
+#### 1.10.3. Automatically Detecting Classes and Registering Bean Definitions
+To autodetect these classes and register the corresponding beans, you need to add @ComponentScan to your @Configuration class, where the basePackages attribute is a common parent package for the two classes. 
+
+    @Configuration
+    @ComponentScan(basePackages = "org.example")
+    public class AppConfig  {
+    // ...
+    }
+
+#### 1.10.4. Using Filters to Customize Scanning
+* annotation (default)
+* assignable
+* aspectj
+* regex
+* custom
 
 
+    @Configuration
+    @ComponentScan(basePackages = "org.example",
+    includeFilters = @Filter(type = FilterType.REGEX, pattern = ".*Stub.*Repository"),
+    excludeFilters = @Filter(Repository.class))
+    public class AppConfig {
+    ...
+    }
+
+#### 1.10.5. Defining Bean Metadata within Components
+
+    @Component
+    public class FactoryMethodComponent {
+    
+        @Bean
+        @Qualifier("public")
+        public TestBean publicInstance() {
+            return new TestBean("publicInstance");
+        }
+    
+        public void doWork() {
+            // Component method implementation omitted
+        }
+    }
+
+#### 1.10.6. Naming Autodetected Components
+
+    @Service("myMovieLister")
+    public class SimpleMovieLister {
+    // ...
+    }
+
+#### 1.10.7. Providing a Scope for Autodetected Components
+
+    @Scope("prototype")
+    @Repository
+    public class MovieFinderImpl implements MovieFinder {
+    // ...
+    }
+
+### 1.11. Using JSR 330 Standard Annotations
+#### 1.11.1. Dependency Injection with @Inject and @Named
+Instead of @Autowired, you can use @javax.inject.Inject as follows:
+
+
+    import javax.inject.Inject;
+    
+    public class SimpleMovieLister {
+    
+        private MovieFinder movieFinder;
+    
+        @Inject
+        public void setMovieFinder(MovieFinder movieFinder) {
+            this.movieFinder = movieFinder;
+        }
+    
+        public void listMovies() {
+            this.movieFinder.findMovies(...);
+            // ...
+        }
+    }
+
+#### 1.11.2. @Named and @ManagedBean: Standard Equivalents to the @Component Annotation
+Instead of @Component, you can use @javax.inject.Named or javax.annotation.ManagedBean, as the following example shows:
+
+    import javax.inject.Inject;
+    import javax.inject.Named;
+    
+    @Named("movieListener")  // @ManagedBean("movieListener") could be used as well
+    public class SimpleMovieLister {
+    
+        private MovieFinder movieFinder;
+    
+        @Inject
+        public void setMovieFinder(MovieFinder movieFinder) {
+            this.movieFinder = movieFinder;
+        }
+    
+        // ...
+    }
 
 
 
