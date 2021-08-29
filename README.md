@@ -753,6 +753,64 @@ Spring offers a wide range of Aware callback interfaces that let beans indicate 
 * ServletConfigAware
 * ServletContextAware
 
+## 1.7. Bean Definition Inheritance
+A child bean definition inherits configuration data from a parent definition
+
+    <bean id="inheritedTestBean" abstract="true"
+        class="org.springframework.beans.TestBean">
+        <property name="name" value="parent"/>
+        <property name="age" value="1"/>
+    </bean>
+    
+    <bean id="inheritsWithDifferentClass"
+        class="org.springframework.beans.DerivedTestBean"
+        parent="inheritedTestBean" init-method="initialize">  
+        <property name="name" value="override"/>
+        <!-- the age property value of 1 will be inherited from parent -->
+    </bean>
+
+## 1.8. Container Extension Points
+The Spring IoC container can be extended by plugging in implementations of special integration interfaces.
+
+### 1.8.1. Customizing Beans by Using a BeanPostProcessor
+The BeanPostProcessor interface defines callback methods that you can implement to provide your own (or override the container’s default) instantiation logic, dependency resolution logic, and so forth.
+You can configure multiple BeanPostProcessor instances, and you can control the order in which these BeanPostProcessor instances run by setting the order property.
+
+    public class InstantiationTracingBeanPostProcessor implements BeanPostProcessor {
+    
+        // simply return the instantiated bean as-is
+        public Object postProcessBeforeInitialization(Object bean, String beanName) {
+            return bean; // we could potentially return any object reference here...
+        }
+    
+        public Object postProcessAfterInitialization(Object bean, String beanName) {
+            System.out.println("Bean '" + beanName + "' created : " + bean.toString());
+            return bean;
+        }
+    }
+
+### 1.8.2. Customizing Configuration Metadata with a BeanFactoryPostProcessor
+BeanFactoryPostProcessor read the configuration metadata and potentially change it before the container instantiates any beans other than BeanFactoryPostProcessor instances.
+
+    <bean class="org.springframework.context.support.PropertySourcesPlaceholderConfigurer">
+        <property name="locations" value="classpath:com/something/jdbc.properties"/>
+    </bean>
+    
+    <bean id="dataSource" destroy-method="close"
+        class="org.apache.commons.dbcp.BasicDataSource">
+        <property name="driverClassName" value="${jdbc.driverClassName}"/>
+        <property name="url" value="${jdbc.url}"/>
+        <property name="username" value="${jdbc.username}"/>
+        <property name="password" value="${jdbc.password}"/>
+    </bean>
+
+### 1.8.3. Customizing Instantiation Logic with a FactoryBean
+The FactoryBean<T> interface provides three methods:
+* T getObject(): Returns an instance of the object this factory creates. The instance can possibly be shared, depending on whether this factory returns singletons or prototypes.
+* boolean isSingleton(): Returns true if this FactoryBean returns singletons or false otherwise. The default implementation of this method returns true.
+* Class<?> getObjectType(): Returns the object type returned by the getObject() method or null if the type is not known in advance.
+
+
 
 
 
