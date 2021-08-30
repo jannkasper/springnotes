@@ -920,5 +920,181 @@ Instead of @Component, you can use @javax.inject.Named or javax.annotation.Manag
         // ...
     }
 
+### 1.12. Java-based Container Configuration
+#### 1.12.1. Basic Concepts: @Bean and @Configuration
+
+    @Configuration
+    public class AppConfig {
+    
+        @Bean
+        public MyService myService() {
+            return new MyServiceImpl();
+        }
+    }
+
+The preceding AppConfig class is equivalent to the following Spring <beans/> XML.
+
+#### 1.12.2. Instantiating the Spring Container by Using AnnotationConfigApplicationContext
+This versatile ApplicationContext implementation is capable of accepting not only @Configuration classes as input but also plain @Component classes and classes annotated with JSR-330 metadata.
+
+    public static void main(String[] args) {
+        ApplicationContext ctx = new AnnotationConfigApplicationContext(MyServiceImpl.class, Dependency1.class, Dependency2.class);
+        MyService myService = ctx.getBean(MyService.class);
+        myService.doStuff();
+    }
+
+You can instantiate an AnnotationConfigApplicationContext by using a no-arg constructor and then configure it by using the register() method.
+
+    public static void main(String[] args) {
+        AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext();
+        ctx.register(AppConfig.class, OtherConfig.class);
+        ctx.register(AdditionalConfig.class);
+        ctx.refresh();
+        MyService myService = ctx.getBean(MyService.class);
+        myService.doStuff();
+    }
+
+#### 1.12.3. Using the @Bean Annotation
+@Bean is a method-level annotation and a direct analog of the XML <bean/> element.
+
+    @Configuration
+    public class AppConfig {
+    
+        @Bean
+        public TransferServiceImpl transferService() {
+            return new TransferServiceImpl();
+        }
+    }
+
+Bean Dependencies
+
+    @Bean
+    public TransferService transferService(AccountRepository accountRepository) {
+        return new TransferServiceImpl(accountRepository);
+    }
+
+Receiving Lifecycle Callbacks
+
+Specifying Bean Scope
+
+Customizing Bean Naming
+
+    @Bean(name = "myThing")
+    public Thing thing() {
+        return new Thing();
+    }
+
+Bean Aliasing
+
+    @Bean({"dataSource", "subsystemA-dataSource", "subsystemB-dataSource"})
+    public DataSource dataSource() {
+        // instantiate, configure and return DataSource bean...
+    }
+
+Bean Description
+
+    @Bean
+    @Description("Provides a basic example of a bean")
+    public Thing thing() {
+        return new Thing();
+    }
+
+#### 1.12.4. Using the @Configuration annotation
+Injecting Inter-bean Dependencies
+
+This method of declaring inter-bean dependencies works only when the @Bean method is declared within a @Configuration class.
+
+    @Configuration
+    public class AppConfig {
+    
+        @Bean
+        public BeanOne beanOne() {
+            return new BeanOne(beanTwo());
+        }
+    
+        @Bean
+        public BeanTwo beanTwo() {
+            return new BeanTwo();
+        }
+    }
+
+Further Information About How Java-based Configuration Works Internally
+
+clientDao() has been called once in clientService1() and once in clientService2().
+This is where the magic comes in: All @Configuration classes are subclassed at startup-time with CGLIB. In the subclass, the child method checks the container first for any cached (scoped) beans before it calls the parent method and creates a new instance.
+
+    @Configuration
+    public class AppConfig {
+    
+        @Bean
+        public ClientService clientService1() {
+            ClientServiceImpl clientService = new ClientServiceImpl();
+            clientService.setClientDao(clientDao());
+            return clientService;
+        }
+    
+        @Bean
+        public ClientService clientService2() {
+            ClientServiceImpl clientService = new ClientServiceImpl();
+            clientService.setClientDao(clientDao());
+            return clientService;
+        }
+    
+        @Bean
+        public ClientDao clientDao() {
+            return new ClientDaoImpl();
+        }
+    }
+
+#### 1.12.5. Composing Java-based Configurations
+Using the @Import Annotation
+
+    @Configuration
+    public class ConfigA {
+    
+        @Bean
+        public A a() {
+            return new A();
+        }
+    }
+    
+    @Configuration
+    @Import(ConfigA.class)
+    public class ConfigB {
+    
+        @Bean
+        public B b() {
+            return new B();
+        }
+    }
+
+@Configuration Class-centric Use of XML with @ImportResource
+
+    @Configuration
+    @ImportResource("classpath:/com/acme/properties-config.xml")
+    public class AppConfig {
+    
+        @Value("${jdbc.url}")
+        private String url;
+    
+        @Value("${jdbc.username}")
+        private String username;
+    
+        @Value("${jdbc.password}")
+        private String password;
+    
+        @Bean
+        public DataSource dataSource() {
+            return new DriverManagerDataSource(url, username, password);
+        }
+    }
+
+
+
+
+
+
+
+
 
 
