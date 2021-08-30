@@ -1089,8 +1089,104 @@ Using the @Import Annotation
         }
     }
 
+### 1.13. Environment Abstraction
+Two key aspects of the application environment: profiles and properties.
 
+#### 1.13.1. Bean Definition Profiles
+Bean definition profiles provide a mechanism in the core container that allows for registration of different beans in different environments.
 
+    @Configuration
+    @Profile("development")
+    public class StandaloneDataConfig {
+    
+        @Bean
+        public DataSource dataSource() {
+            return new EmbeddedDatabaseBuilder()
+                .setType(EmbeddedDatabaseType.HSQL)
+                .addScript("classpath:com/bank/config/sql/schema.sql")
+                .addScript("classpath:com/bank/config/sql/test-data.sql")
+                .build();
+        }
+    }
+.
+
+    @Configuration
+    @Profile("production")
+    public class JndiDataConfig {
+    
+        @Bean(destroyMethod="")
+        public DataSource dataSource() throws Exception {
+            Context ctx = new InitialContext();
+            return (DataSource) ctx.lookup("java:comp/env/jdbc/datasource");
+        }
+    }
+
+You can use @Profile as a meta-annotation for the purpose of creating a custom composed annotation.
+
+    @Target(ElementType.TYPE)
+    @Retention(RetentionPolicy.RUNTIME)
+    @Profile("production")
+    public @interface Production {
+    }
+
+@Profile can also be declared at the method level
+
+    @Configuration
+    public class AppConfig {
+    
+        @Bean("dataSource")
+        @Profile("development") 
+        public DataSource standaloneDataSource() {
+            return new EmbeddedDatabaseBuilder()
+                .setType(EmbeddedDatabaseType.HSQL)
+                .addScript("classpath:com/bank/config/sql/schema.sql")
+                .addScript("classpath:com/bank/config/sql/test-data.sql")
+                .build();
+        }
+    
+        @Bean("dataSource")
+        @Profile("production") 
+        public DataSource jndiDataSource() throws Exception {
+            Context ctx = new InitialContext();
+            return (DataSource) ctx.lookup("java:comp/env/jdbc/datasource");
+        }
+    }
+
+Activating a Profile
+
+    AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext();
+    ctx.getEnvironment().setActiveProfiles("development");
+    ctx.register(SomeConfig.class, StandaloneDataConfig.class, JndiDataConfig.class);
+    ctx.refresh();
+
+#### 1.13.2. PropertySource Abstraction
+
+We see a high-level way of asking Spring whether the my-property property is defined for the current environment.
+
+    ApplicationContext ctx = new GenericApplicationContext();
+    Environment env = ctx.getEnvironment();
+    boolean containsMyProperty = env.containsProperty("my-property");
+    System.out.println("Does my environment contain the 'my-property' property? " + containsMyProperty);
+
+#### 1.13.3. Using @PropertySource
+
+    @Configuration
+    @PropertySource("classpath:/com/myco/app.properties")
+    public class AppConfig {
+    
+        @Autowired
+        Environment env;
+    
+        @Bean
+        public TestBean testBean() {
+            TestBean testBean = new TestBean();
+            testBean.setName(env.getProperty("testbean.name"));
+            return testBean;
+        }
+    }
+
+### 1.14. Registering a LoadTimeWeaver
+The LoadTimeWeaver is used by Spring to dynamically transform classes as they are loaded into the Java virtual machine (JVM).
 
 
 
