@@ -1520,4 +1520,481 @@ A FileSystemResource that is not attached to a FileSystemApplicationContext (tha
     equivalent:
     ApplicationContext ctx = new FileSystemXmlApplicationContext("/conf/context.xml");
 
+## 3. Validation, Data Binding, and Type Conversion
+### 3.1. Validation by Using Spring’s Validator Interface
 
+    public class Person {
+    
+        private String name;
+        private int age;
+    
+        // the usual getters and setters...
+    }
+
+The next example provides validation behavior for the Person class by implementing the following two methods of the org.springframework.validation.Validator interface:
+* supports(Class): Can this Validator validate instances of the supplied Class?
+* validate(Object, org.springframework.validation.Errors): Validates the given object and, in case of validation errors, registers those with the given Errors object.
+
+    public class PersonValidator implements Validator {
+    
+        /**
+         * This Validator validates only Person instances
+         */
+        public boolean supports(Class clazz) {
+            return Person.class.equals(clazz);
+        }
+    
+        public void validate(Object obj, Errors e) {
+            ValidationUtils.rejectIfEmpty(e, "name", "name.empty");
+            Person p = (Person) obj;
+            if (p.getAge() < 0) {
+                e.rejectValue("age", "negativevalue");
+            } else if (p.getAge() > 110) {
+                e.rejectValue("age", "too.darn.old");
+            }
+        }
+    }
+
+### 3.2. Resolving Codes to Error Messages
+The MessageCodesResolver determines which error codes the Errors interface registers. By default, the DefaultMessageCodesResolver is used, which (for example) not only registers a message with the code you gave but also registers messages that include the field name you passed to the reject method.
+
+### 3.3. Bean Manipulation and the BeanWrapper
+The way the BeanWrapper works is partly indicated by its name: it wraps a bean to perform actions on that bean, such as setting and retrieving properties.
+
+#### 3.3.1. Setting and Getting Basic and Nested Properties
+Setting and getting properties is done through the setPropertyValue and getPropertyValue overloaded method variants of BeanWrapper.
+
+| Expression | Explanation |
+| ---- | ---- |
+| name | Indicates the property name that corresponds to the getName() or isName() and setName(..) methods. |
+| account.name |Indicates the nested property name of the property account that corresponds to (for example) the getAccount().setName() or getAccount().getName() methods. |
+| account[2] | Indicates the third element of the indexed property account. Indexed properties can be of type array, list, or other naturally ordered collection. |
+| account[COMPANYNAME] | Indicates the value of the map entry indexed by the COMPANYNAME key of the account Map property. |
+
+    BeanWrapper company = new BeanWrapperImpl(new Company());
+    // setting the company name..
+    company.setPropertyValue("name", "Some Company Inc.");
+    // ... can also be done like this:
+    PropertyValue value = new PropertyValue("name", "Some Company Inc.");
+    company.setPropertyValue(value);
+    
+    // ok, let's create the director and tie it to the company:
+    BeanWrapper jim = new BeanWrapperImpl(new Employee());
+    jim.setPropertyValue("name", "Jim Stravinsky");
+    company.setPropertyValue("managingDirector", jim.getWrappedInstance());
+    
+    // retrieving the salary of the managingDirector through the company
+    Float salary = (Float) company.getPropertyValue("managingDirector.salary");
+
+#### 3.3.2. Built-in PropertyEditor Implementations
+Spring uses the concept of a PropertyEditor to effect the conversion between an Object and a String.
+
+A couple of examples where property editing is used in Spring:
+* Setting properties on beans is done by using PropertyEditor implementations. When you use String as the value of a property of some bean that you declare in an XML file, Spring (if the setter of the corresponding property has a Class parameter) uses ClassEditor to try to resolve the parameter to a Class object.
+* Parsing HTTP request parameters in Spring’s MVC framework is done by using all kinds of PropertyEditor implementations that you can manually bind in all subclasses of the CommandController.
+
+
+    public class SomethingBeanInfo extends SimpleBeanInfo {
+    
+        public PropertyDescriptor[] getPropertyDescriptors() {
+            try {
+                final PropertyEditor numberPE = new CustomNumberEditor(Integer.class, true);
+                PropertyDescriptor ageDescriptor = new PropertyDescriptor("age", Something.class) {
+                    @Override
+                    public PropertyEditor createPropertyEditor(Object bean) {
+                        return numberPE;
+                    }
+                };
+                return new PropertyDescriptor[] { ageDescriptor };
+            }
+            catch (IntrospectionException ex) {
+                throw new Error(ex.toString());
+            }
+        }
+    }
+
+Registering Additional Custom PropertyEditor Implementations
+
+    <bean class="org.springframework.beans.factory.config.CustomEditorConfigurer">
+        <property name="customEditors">
+            <map>
+                <entry key="example.ExoticType" value="example.ExoticTypeEditor"/>
+            </map>
+        </property>
+    </bean>
+
+Using PropertyEditorRegistrar
+
+    package com.foo.editors.spring;
+    
+    public final class CustomPropertyEditorRegistrar implements PropertyEditorRegistrar {
+    
+        public void registerCustomEditors(PropertyEditorRegistry registry) {
+    
+            // it is expected that new PropertyEditor instances are created
+            registry.registerCustomEditor(ExoticType.class, new ExoticTypeEditor());
+    
+            // you could register as many custom property editors as are required here...
+        }
+    }
+
+### 3.4. Spring Type Conversion
+#### 3.4.1. Converter SPI
+
+    package org.springframework.core.convert.support;
+    
+    final class StringToInteger implements Converter<String, Integer> {
+    
+        public Integer convert(String source) {
+            return Integer.valueOf(source);
+        }
+    }
+
+#### 3.4.2. Using ConverterFactory
+
+    package org.springframework.core.convert.support;
+    
+    final class StringToEnumConverterFactory implements ConverterFactory<String, Enum> {
+    
+        public <T extends Enum> Converter<String, T> getConverter(Class<T> targetType) {
+            return new StringToEnumConverter(targetType);
+        }
+    
+        private final class StringToEnumConverter<T extends Enum> implements Converter<String, T> {
+    
+            private Class<T> enumType;
+    
+            public StringToEnumConverter(Class<T> enumType) {
+                this.enumType = enumType;
+            }
+    
+            public T convert(String source) {
+                return (T) Enum.valueOf(this.enumType, source.trim());
+            }
+        }
+    }
+
+#### 3.4.3. Using GenericConverter
+
+    package org.springframework.core.convert.converter;
+    
+    public interface GenericConverter {
+    
+        public Set<ConvertiblePair> getConvertibleTypes();
+    
+        Object convert(Object source, TypeDescriptor sourceType, TypeDescriptor targetType);
+    }
+
+Using ConditionalGenericConverter
+
+    public interface ConditionalConverter {
+    
+        boolean matches(TypeDescriptor sourceType, TypeDescriptor targetType);
+    }
+    
+    public interface ConditionalGenericConverter extends GenericConverter, ConditionalConverter {
+    }
+
+#### 3.4.4. The ConversionService API
+
+    package org.springframework.core.convert;
+    
+    public interface ConversionService {
+    
+        boolean canConvert(Class<?> sourceType, Class<?> targetType);
+    
+        <T> T convert(Object source, Class<T> targetType);
+    
+        boolean canConvert(TypeDescriptor sourceType, TypeDescriptor targetType);
+    
+        Object convert(Object source, TypeDescriptor sourceType, TypeDescriptor targetType);
+    }
+
+#### 3.4.5. Configuring a ConversionService
+
+    <bean id="conversionService"
+            class="org.springframework.context.support.ConversionServiceFactoryBean">
+        <property name="converters">
+            <set>
+                <bean class="example.MyCustomConverter"/>
+            </set>
+        </property>
+    </bean>
+
+#### 3.4.6. Using a ConversionService Programmatically
+
+    @Service
+    public class MyService {
+    
+        public MyService(ConversionService conversionService) {
+            this.conversionService = conversionService;
+        }
+    
+        public void doIt() {
+            this.conversionService.convert(...)
+        }
+    }
+
+### 3.5. Spring Field Formatting
+In general, you can use the Converter SPI when you need to implement general-purpose type conversion logic — for example, for converting between a java.util.Date and a Long. You can use the Formatter SPI when you work in a client environment (such as a web application) and need to parse and print localized field values.
+
+#### 3.5.1. The Formatter SPI
+
+    package org.springframework.format;
+    
+    public interface Formatter<T> extends Printer<T>, Parser<T> {
+    }
+.
+
+    public interface Printer<T> {
+    
+        String print(T fieldValue, Locale locale);
+    }
+.
+
+    import java.text.ParseException;
+    
+    public interface Parser<T> {
+    
+        T parse(String clientValue, Locale locale) throws ParseException;
+    }
+Example Formatter implementation:
+
+    package org.springframework.format.datetime;
+    
+    public final class DateFormatter implements Formatter<Date> {
+    
+        private String pattern;
+    
+        public DateFormatter(String pattern) {
+            this.pattern = pattern;
+        }
+    
+        public String print(Date date, Locale locale) {
+            if (date == null) {
+                return "";
+            }
+            return getDateFormat(locale).format(date);
+        }
+    
+        public Date parse(String formatted, Locale locale) throws ParseException {
+            if (formatted.length() == 0) {
+                return null;
+            }
+            return getDateFormat(locale).parse(formatted);
+        }
+    
+        protected DateFormat getDateFormat(Locale locale) {
+            DateFormat dateFormat = new SimpleDateFormat(this.pattern, locale);
+            dateFormat.setLenient(false);
+            return dateFormat;
+        }
+    }
+
+#### 3.5.2. Annotation-driven Formatting
+
+    package org.springframework.format;
+    
+    public interface AnnotationFormatterFactory<A extends Annotation> {
+    
+        Set<Class<?>> getFieldTypes();
+    
+        Printer<?> getPrinter(A annotation, Class<?> fieldType);
+    
+        Parser<?> getParser(A annotation, Class<?> fieldType);
+    }
+.
+
+    public final class NumberFormatAnnotationFormatterFactory
+    implements AnnotationFormatterFactory<NumberFormat> {
+    
+        public Set<Class<?>> getFieldTypes() {
+            return new HashSet<Class<?>>(asList(new Class<?>[] {
+                Short.class, Integer.class, Long.class, Float.class,
+                Double.class, BigDecimal.class, BigInteger.class }));
+        }
+    
+        public Printer<Number> getPrinter(NumberFormat annotation, Class<?> fieldType) {
+            return configureFormatterFrom(annotation, fieldType);
+        }
+    
+        public Parser<Number> getParser(NumberFormat annotation, Class<?> fieldType) {
+            return configureFormatterFrom(annotation, fieldType);
+        }
+    
+        private Formatter<Number> configureFormatterFrom(NumberFormat annotation, Class<?> fieldType) {
+            if (!annotation.pattern().isEmpty()) {
+                return new NumberStyleFormatter(annotation.pattern());
+            } else {
+                Style style = annotation.style();
+                if (style == Style.PERCENT) {
+                    return new PercentStyleFormatter();
+                } else if (style == Style.CURRENCY) {
+                    return new CurrencyStyleFormatter();
+                } else {
+                    return new NumberStyleFormatter();
+                }
+            }
+        }
+    }
+Annotate fields with @NumberFormat, as the following example shows:
+
+    public class MyModel {
+    
+        @NumberFormat(style=Style.CURRENCY)
+        private BigDecimal decimal;
+    }
+
+#### 3.5.3. The FormatterRegistry SPI
+The FormatterRegistry is an SPI for registering formatters and converters. 
+
+    package org.springframework.format;
+    
+    public interface FormatterRegistry extends ConverterRegistry {
+    
+        void addPrinter(Printer<?> printer);
+    
+        void addParser(Parser<?> parser);
+    
+        void addFormatter(Formatter<?> formatter);
+    
+        void addFormatterForFieldType(Class<?> fieldType, Formatter<?> formatter);
+    
+        void addFormatterForFieldType(Class<?> fieldType, Printer<?> printer, Parser<?> parser);
+    
+        void addFormatterForFieldAnnotation(AnnotationFormatterFactory<? extends Annotation> annotationFormatterFactory);
+    }
+
+#### 3.5.4. The FormatterRegistrar SPI
+FormatterRegistrar is an SPI for registering formatters and converters through the FormatterRegistry. 
+    
+    package org.springframework.format;
+    
+    public interface FormatterRegistrar {
+    
+        void registerFormatters(FormatterRegistry registry);
+    }
+
+### 3.6. Configuring a Global Date and Time Format
+By default, date and time fields not annotated with @DateTimeFormat are converted from strings by using the DateFormat.SHORT.
+
+To do that, ensure that Spring does not register default formatters. Instead, register formatters manually with the help of:
+* org.springframework.format.datetime.standard.DateTimeFormatterRegistrar
+* org.springframework.format.datetime.DateFormatterRegistrar
+
+    @Configuration
+    public class AppConfig {
+    
+        @Bean
+        public FormattingConversionService conversionService() {
+    
+            // Use the DefaultFormattingConversionService but do not register defaults
+            DefaultFormattingConversionService conversionService = new DefaultFormattingConversionService(false);
+    
+            // Ensure @NumberFormat is still supported
+            conversionService.addFormatterForFieldAnnotation(new NumberFormatAnnotationFormatterFactory());
+    
+            // Register JSR-310 date conversion with a specific global format
+            DateTimeFormatterRegistrar registrar = new DateTimeFormatterRegistrar();
+            registrar.setDateFormatter(DateTimeFormatter.ofPattern("yyyyMMdd"));
+            registrar.registerFormatters(conversionService);
+    
+            // Register date conversion with a specific global format
+            DateFormatterRegistrar registrar = new DateFormatterRegistrar();
+            registrar.setFormatter(new DateFormatter("yyyyMMdd"));
+            registrar.registerFormatters(conversionService);
+    
+            return conversionService;
+        }
+    }
+
+
+### 3.7. Java Bean Validation
+#### 3.7.1. Overview of Bean Validation
+
+    public class PersonForm {
+    
+        @NotNull
+        @Size(max=64)
+        private String name;
+    
+        @Min(0)
+        private int age;
+    }
+
+#### 3.7.2. Configuring a Bean Validation Provider
+
+    import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+    
+    @Configuration
+    public class AppConfig {
+    
+        @Bean
+        public LocalValidatorFactoryBean validator() {
+            return new LocalValidatorFactoryBean();
+        }
+    }
+
+Injecting a Validator
+
+    import org.springframework.validation.Validator;
+    
+    @Service
+    public class MyService {
+    
+        @Autowired
+        private Validator validator;
+    }
+
+Configuring Custom Constraints
+
+Each bean validation constraint consists of two parts:
+* A @Constraint annotation that declares the constraint and its configurable properties.
+* An implementation of the javax.validation.ConstraintValidator interface that implements the constraint’s behavior.
+
+
+    @Target({ElementType.METHOD, ElementType.FIELD})
+    @Retention(RetentionPolicy.RUNTIME)
+    @Constraint(validatedBy=MyConstraintValidator.class)
+    public @interface MyConstraint {
+    }
+.
+
+    import javax.validation.ConstraintValidator;
+    
+    public class MyConstraintValidator implements ConstraintValidator {
+    
+        @Autowired;
+        private Foo aDependency;
+    
+        // ...
+    }
+
+Spring-driven Method Validation
+
+    import org.springframework.validation.beanvalidation.MethodValidationPostProcessor;
+    
+    @Configuration
+    public class AppConfig {
+    
+        @Bean
+        public MethodValidationPostProcessor validationPostProcessor() {
+            return new MethodValidationPostProcessor();
+        }
+    }
+
+#### 3.7.3. Configuring a DataBinder
+Since Spring 3, you can configure a DataBinder instance with a Validator. Once configured, you can invoke the Validator by calling binder.validate(). Any validation Errors are automatically added to the binder’s BindingResult.
+
+    Foo target = new Foo();
+    DataBinder binder = new DataBinder(target);
+    binder.setValidator(new FooValidator());
+    
+    // bind to the target object
+    binder.bind(propertyValues);
+    
+    // validate the target object
+    binder.validate();
+    
+    // get BindingResult that includes any validation errors
+    BindingResult results = binder.getBindingResult();
