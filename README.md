@@ -1369,3 +1369,155 @@ You can register an ApplicationContext by using the ContextLoaderListener, as th
 | Automatic BeanFactoryPostProcessor registration | No | Yes |
 | Convenient MessageSource access (for internalization) | No | Yes |
 | Built-in ApplicationEvent publication mechanism | No | Yes |
+
+## 2. Resources
+### 2.1. Introduction
+Java’s standard java.net.URL class and standard handlers for various URL prefixes, unfortunately, are not quite adequate enough for all access to low-level resources.
+
+### 2.2. The Resource Interface
+Spring’s Resource interface located in the org.springframework.core.io. package is meant to be a more capable interface for abstracting access to low-level resources. 
+
+    public interface Resource extends InputStreamSource {
+    
+        boolean exists();
+    
+        boolean isReadable();
+    
+        boolean isOpen();
+    
+        boolean isFile();
+    
+        URL getURL() throws IOException;
+    
+        URI getURI() throws IOException;
+    
+        File getFile() throws IOException;
+    
+        ReadableByteChannel readableChannel() throws IOException;
+    
+        long contentLength() throws IOException;
+    
+        long lastModified() throws IOException;
+    
+        Resource createRelative(String relativePath) throws IOException;
+    
+        String getFilename();
+    
+        String getDescription();
+    }
+
+Some of the most important methods from the Resource interface are:
+* getInputStream(): Locates and opens the resource, returning an InputStream for reading from the resource. It is expected that each invocation returns a fresh InputStream. It is the responsibility of the caller to close the stream.
+* exists(): Returns a boolean indicating whether this resource actually exists in physical form.
+* isOpen(): Returns a boolean indicating whether this resource represents a handle with an open stream. If true, the InputStream cannot be read multiple times and must be read once only and then closed to avoid resource leaks. Returns false for all usual resource implementations, with the exception of InputStreamResource.
+* getDescription(): Returns a description for this resource, to be used for error output when working with the resource. This is often the fully qualified file name or the actual URL of the resource.
+
+### 2.3. Built-in Resource Implementations
+* UrlResource - wraps a java.net.URL
+* ClassPathResource - Resource implementation supports resolution as a java.io.File
+* FileSystemResource - Resource implementation for java.io.File
+* PathResource - Resource implementation for java.nio.file.Path
+* ServletContextResource - Resource implementation for ServletContext
+* InputStreamResource - Resource implementation for a given InputStream.
+* ByteArrayResource - Resource implementation for a given byte array
+
+### 2.4. The ResourceLoader Interface
+Against a ClassPathXmlApplicationContext, that code returns a ClassPathResource. If the same method were run against a FileSystemXmlApplicationContext instance, it would return a FileSystemResource. For a WebApplicationContext, it would return a ServletContextResource
+
+    Resource template = ctx.getResource("some/resource/path/myTemplate.txt");
+
+    Resource template = ctx.getResource("classpath:some/resource/path/myTemplate.txt");
+
+    Resource template = ctx.getResource("file:///some/resource/path/myTemplate.txt");
+
+    Resource template = ctx.getResource("https://myhost.com/resource/path/myTemplate.txt");
+
+| Prefix | Example | Explanation |
+| ------------- | ------------- | ------------- |
+| classpath: | classpath:com/myapp/config.xml | Loaded from the classpath. |
+| file: | file:///data/config.xml | Loaded as a URL from the filesystem. See also FileSystemResource Caveats. |
+| https: | https://myserver/logo.png | Loaded as a URL. |
+| (none) | /data/config.xml | Depends on the underlying ApplicationContext. |
+
+### 2.5. The ResourcePatternResolver Interface
+The ResourcePatternResolver interface is an extension to the ResourceLoader interface which defines a strategy for resolving a location pattern (for example, an Ant-style path pattern) into Resource objects.
+
+    public interface ResourcePatternResolver extends ResourceLoader {
+    
+        String CLASSPATH_ALL_URL_PREFIX = "classpath*:";
+    
+        Resource[] getResources(String locationPattern) throws IOException;
+    }
+
+### 2.6. The ResourceLoaderAware Interface
+The ResourceLoaderAware interface is a special callback interface which identifies components that expect to be provided a ResourceLoader reference.
+
+    public interface ResourceLoaderAware {
+    
+        void setResourceLoader(ResourceLoader resourceLoader);
+    }
+
+### 2.7. Resources as Dependencies
+
+    package example;
+    
+    public class MyBean {
+    
+        private Resource template;
+    
+        public setTemplate(Resource template) {
+            this.template = template;
+        }
+    
+        // ...
+    }
+
+    <bean id="myBean" class="example.MyBean">
+        <property name="template" value="some/resource/path/myTemplate.txt"/>
+    </bean>
+.
+
+    @Component
+    public class MyBean {
+    
+        private final Resource template;
+    
+        public MyBean(@Value("${template.path}") Resource template) {
+            this.template = template;
+        }
+    
+        // ...
+    }
+.
+
+    @Component
+    public class MyBean {
+    
+        private final Resource[] templates;
+    
+        public MyBean(@Value("${templates.path}") Resource[] templates) {
+            this.templates = templates;
+        }
+    
+        // ...
+    }
+
+## 2.8. Application Contexts and Resource Paths
+### 2.8.1. Constructing Application Contexts
+
+    ApplicationContext ctx = new ClassPathXmlApplicationContext("conf/appContext.xml");
+
+    ApplicationContext ctx = new FileSystemXmlApplicationContext("conf/appContext.xml");
+
+    ApplicationContext ctx = new FileSystemXmlApplicationContext("classpath:conf/appContext.xml");
+
+    ApplicationContext ctx = new ClassPathXmlApplicationContext(new String[] {"services.xml", "repositories.xml"}, MessengerService.class);
+
+### 2.8.3. FileSystemResource Caveats
+A FileSystemResource that is not attached to a FileSystemApplicationContext (that is, when a FileSystemApplicationContext is not the actual ResourceLoader) treats absolute and relative paths as you would expect.
+
+    ApplicationContext ctx = new FileSystemXmlApplicationContext("conf/context.xml");
+    equivalent:
+    ApplicationContext ctx = new FileSystemXmlApplicationContext("/conf/context.xml");
+
+
