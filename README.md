@@ -1357,5 +1357,15 @@ You can register an ApplicationContext by using the ContextLoaderListener, as th
 
 #### 1.15.6. Deploying a Spring ApplicationContext as a Java EE RAR File
 
+### 1.16. The BeanFactory
+#### 1.16.1. BeanFactory or ApplicationContext?
 
 
+| Feature | BeanFactory | ApplicationContext |
+| ------------- | ------------- | ------------- |
+| Bean instantiation/wiring | Yes | Yes |
+| Integrated lifecycle management | No | Yes |
+| Automatic BeanPostProcessor registration | No | Yes |
+| Automatic BeanFactoryPostProcessor registration | No | Yes |
+| Convenient MessageSource access (for internalization) | No | Yes |
+| Built-in ApplicationEvent publication mechanism | No | Yes |
