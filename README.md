@@ -1188,9 +1188,174 @@ We see a high-level way of asking Spring whether the my-property property is def
 ### 1.14. Registering a LoadTimeWeaver
 The LoadTimeWeaver is used by Spring to dynamically transform classes as they are loaded into the Java virtual machine (JVM).
 
+### 1.15. Additional Capabilities of the ApplicationContext
+To enhance BeanFactory functionality in a more framework-oriented style, the context package also provides the following functionality:
 
+* Access to messages in i18n-style, through the `MessageSource` interface.
+* Access to resources, such as URLs and files, through the `ResourceLoader` interface.
+* Event publication, namely to beans that implement the `ApplicationListener` interface, through the use of the `ApplicationEventPublisher` interface.
+* Loading of multiple (hierarchical) contexts, letting each be focused on one particular layer, such as the web layer of an application, through the `HierarchicalBeanFactory` interface.
 
+#### 1.15.1. Internationalization using MessageSource
+The ApplicationContext interface extends an interface called MessageSource and, therefore, provides internationalization (“i18n”) functionality.
 
+    <beans>
+        <bean id="messageSource"
+                class="org.springframework.context.support.ResourceBundleMessageSource">
+            <property name="basenames">
+                <list>
+                    <value>format</value>
+                    <value>exceptions</value>
+                    <value>windows</value>
+                </list>
+            </property>
+        </bean>
+    </beans>
+.
+
+    # in format.properties
+    message=Alligators rock!
+
+    # in exceptions.properties
+    argument.required=The {0} argument is required.
+
+    public static void main(String[] args) {
+        MessageSource resources = new ClassPathXmlApplicationContext("beans.xml");
+        String message = resources.getMessage("message", null, "Default", Locale.ENGLISH);
+        System.out.println(message);
+    }
+
+    Output: Alligators rock!
+
+#### 1.15.2. Standard and Custom Events
+* ContextRefreshedEvent
+* ContextStartedEvent
+* ContextStoppedEvent
+* ContextClosedEvent
+* RequestHandledEvent
+* ServletRequestHandledEvent
+
+You can also create and publish your own custom events. The following example shows a simple class that extends Spring’s ApplicationEvent base class:
+
+    public class BlockedListEvent extends ApplicationEvent {
+    
+        private final String address;
+        private final String content;
+    
+        public BlockedListEvent(Object source, String address, String content) {
+            super(source);
+            this.address = address;
+            this.content = content;
+        }
+    
+        // accessor and other methods...
+    }
+
+To publish a custom ApplicationEvent, call the publishEvent() method on an ApplicationEventPublisher.
+
+    publisher.publishEvent(new BlockedListEvent(this, address, content));
+
+To receive the custom ApplicationEvent, you can create a class that implements ApplicationListener and register it as a Spring bean. The following example shows such a class:
+
+    public class BlockedListNotifier implements ApplicationListener<BlockedListEvent> {
+    
+        private String notificationAddress;
+    
+        public void setNotificationAddress(String notificationAddress) {
+            this.notificationAddress = notificationAddress;
+        }
+    
+        public void onApplicationEvent(BlockedListEvent event) {
+            // notify appropriate parties via notificationAddress...
+        }
+    }
+
+Annotation-based Event Listeners
+
+You can register an event listener on any method of a managed bean by using the @EventListener annotation. 
+
+    public class BlockedListNotifier {
+    
+        private String notificationAddress;
+    
+        public void setNotificationAddress(String notificationAddress) {
+            this.notificationAddress = notificationAddress;
+        }
+    
+        @EventListener
+        public void processBlockedListEvent(BlockedListEvent event) {
+            // notify appropriate parties via notificationAddress...
+        }
+    }
+.
+
+    @EventListener({ContextStartedEvent.class, ContextRefreshedEvent.class})
+    public void handleContextStart() {
+        // ...
+    }
+.
+
+    @EventListener(condition = "#blEvent.content == 'my-event'")
+    public void processBlockedListEvent(BlockedListEvent blEvent) {
+        // notify appropriate parties via notificationAddress...
+    }
+
+Asynchronous Listeners
+
+    @EventListener
+    @Async
+    public void processBlockedListEvent(BlockedListEvent event) {
+        // BlockedListEvent is processed in a separate thread
+    }
+
+Ordering Listeners
+
+    @EventListener
+    @Order(42)
+    public void processBlockedListEvent(BlockedListEvent event) {
+        // notify appropriate parties via notificationAddress...
+    }
+
+Generic Events
+
+    @EventListener
+    public void onPersonCreated(EntityCreatedEvent<Person> event) {
+        // ...
+    }
+
+#### 1.15.3. Convenient Access to Low-level Resources
+You can configure a bean deployed into the application context to implement the special callback interface, `ResourceLoaderAware`, to be automatically called back at initialization time with the application context itself passed in as the `ResourceLoader`. 
+
+#### 1.15.4. Application Startup Tracking
+The AbstractApplicationContext (and its subclasses) is instrumented with an ApplicationStartup, which collects StartupStep data about various startup phases:
+* application context lifecycle (base packages scanning, config classes management)
+* beans lifecycle (instantiation, smart initialization, post processing)
+* application events processing
+
+Here is an example of instrumentation in the AnnotationConfigApplicationContext:
+
+    // create a startup step and start recording
+    StartupStep scanPackages = this.getApplicationStartup().start("spring.context.base-packages.scan");
+    // add tagging information to the current step
+    scanPackages.tag("packages", () -> Arrays.toString(basePackages));
+    // perform the actual phase we're instrumenting
+    this.scanner.scan(basePackages);
+    // end the current step
+    scanPackages.end();
+
+#### 1.15.5. Convenient ApplicationContext Instantiation for Web Applications
+You can register an ApplicationContext by using the ContextLoaderListener, as the following example shows:
+
+    <context-param>
+        <param-name>contextConfigLocation</param-name>
+        <param-value>/WEB-INF/daoContext.xml /WEB-INF/applicationContext.xml</param-value>
+    </context-param>
+    
+    <listener>
+        <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+    </listener>
+
+#### 1.15.6. Deploying a Spring ApplicationContext as a Java EE RAR File
 
 
 
